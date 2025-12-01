@@ -37,12 +37,16 @@ class ListenerManager : public trantor::NonCopyable
     void addListener(const std::string &ip,
                      uint16_t port,
                      bool useSSL = false,
+                     // 证书路径
                      const std::string &certFile = "",
+                     // 私钥路径
                      const std::string &keyFile = "",
                      bool useOldTLS = false,
+                     // SSL的配置命令
                      const std::vector<std::pair<std::string, std::string>>
                          &sslConfCmds = {});
     std::vector<trantor::InetAddress> getListeners() const;
+    // 在事件循环内部创建监听套接字
     void createListeners(
         const std::string &globalCertFile,
         const std::string &globalKeyFile,
@@ -51,22 +55,26 @@ class ListenerManager : public trantor::NonCopyable
     void startListening();
     void stopListening();
 
+    // 设置监听前的 socket 选项的回调
     void setBeforeListenSockOptCallback(std::function<void(int)> cb)
     {
         beforeListenSetSockOptCallback_ = std::move(cb);
     }
 
+    // 设置接收到连接之后的回调
     void setAfterAcceptSockOptCallback(std::function<void(int)> cb)
     {
         afterAcceptSetSockOptCallback_ = std::move(cb);
     }
 
+    // 设置建立连接之后的回调
     void setConnectionCallback(
         std::function<void(const trantor::TcpConnectionPtr &)> cb)
     {
         connectionCallback_ = std::move(cb);
     }
 
+    // 重新载入 SSL 文件
     void reloadSSLFiles();
 
   private:

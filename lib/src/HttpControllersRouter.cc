@@ -28,6 +28,7 @@ void HttpControllersRouter::init(
 {
     auto initMiddlewaresAndCorsMethods = [](const auto &item) {
         auto corsMethods = std::make_shared<std::string>("OPTIONS,");
+        // Invalid == 7
         for (size_t i = 0; i < Invalid; ++i)
         {
             auto &binder = item.binders_[i];
@@ -53,6 +54,7 @@ void HttpControllersRouter::init(
         corsMethods->pop_back();  // remove last comma
     };
 
+    // 遍历控制器
     for (auto &iter : simpleCtrlMap_)
     {
         initMiddlewaresAndCorsMethods(iter.second);

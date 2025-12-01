@@ -45,7 +45,9 @@ using namespace std::placeholders;
 using namespace drogon;
 using namespace trantor;
 
+// 判断是否是 WebSocket 请求 请求
 static inline bool isWebSocket(const HttpRequestImplPtr &req);
+// 尝试解压请求
 static inline HttpResponsePtr tryDecompressRequest(
     const HttpRequestImplPtr &req);
 static inline bool passSyncAdvices(
@@ -53,11 +55,13 @@ static inline bool passSyncAdvices(
     const std::shared_ptr<HttpRequestParser> &requestParser,
     bool shouldBePipelined,
     bool isHeadMethod);
+    // 获取压缩的响应
 static inline HttpResponsePtr getCompressedResponse(
     const HttpRequestImplPtr &req,
     const HttpResponsePtr &response,
     bool isHeadMethod);
 
+    // 处理非法的 Http 方法
 static void handleInvalidHttpMethod(
     const HttpRequestImplPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback);
@@ -76,14 +80,19 @@ HttpServer::HttpServer(EventLoop *loop,
     : server_(loop, listenAddr, std::move(name), true, app().reusePort())
 #endif
 {
+    // 连接到达时的回调函数
     server_.setConnectionCallback(
         [this](const trantor::TcpConnectionPtr &conn) {
+            // 处理连接
             onConnection(conn);
             if (connectionCallback_)
                 connectionCallback_(conn);
         });
+    // 接收消息的回调
     server_.setRecvMessageCallback(onMessage);
+    // 处理不活跃的连接
     server_.kickoffIdleConnections(
+        // 这里不能使用 drogon::app() 取调用，因为其返回的是父类 HttpAppFramework 的引用
         HttpAppFrameworkImpl::instance().getIdleConnectionTimeout());
 }
 

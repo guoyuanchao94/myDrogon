@@ -48,6 +48,7 @@ class HttpControllerBase
 {
 };
 
+// Http 控制器的反射基类模板
 /**
  * @brief The reflection base class template for HTTP controllers
  *
@@ -70,6 +71,7 @@ class HttpController : public DrObject<T>, public HttpControllerBase
         bool classNameInPath = true,
         const std::string &handlerName = "")
     {
+        // 这个就是加上命名空间等去组成 url 
         if (classNameInPath)
         {
             std::string path = "/";

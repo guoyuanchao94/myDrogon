@@ -59,8 +59,11 @@ void ListenerManager::addListener(
     bool useOldTLS,
     const std::vector<std::pair<std::string, std::string>> &sslConfCmds)
 {
+    // 启用 SSL 但系统不支持 SSL 
     if (useSSL && !utils::supportsTls())
+        // 写日志
         LOG_ERROR << "Can't use SSL without OpenSSL found in your system";
+    // 加入到 vector中，在 run 函数中进行遍历，这里只是存储了其信息
     listeners_.emplace_back(
         ip, port, useSSL, certFile, keyFile, useOldTLS, sslConfCmds);
 }
@@ -70,6 +73,7 @@ std::vector<trantor::InetAddress> ListenerManager::getListeners() const
     std::vector<trantor::InetAddress> listeners;
     for (auto &server : servers_)
     {
+        // 获取的 HttpServer 的IP地址
         listeners.emplace_back(server->address());
     }
     return listeners;
@@ -155,27 +159,39 @@ void ListenerManager::createListeners(
     }
 #else
 
+    // 这个 listenners 是在 drogon::app().addListener添加过来的
+    // drogon::app().addListener() => listenerManagerPtr_->addListener() => listeners_.emplace_back(listenInfo)
     if (!listeners_.empty())
     {
+        // 创建一个监听的事件循环线程
         listeningThread_ =
             std::make_unique<EventLoopThread>("DrogonListeningLoop");
+        // 开始执行事件循环，且不会阻塞当前线程
         listeningThread_->run();
         for (auto const &listener : listeners_)
         {
+            // 获取监听的 IP 
             auto ip = listener.ip_;
+            // 判断是否是 IPv6 地址
             bool isIpv6 = (ip.find(':') != std::string::npos);
+            // 创建一个 HttpServer，将在 listeningThread_ 线程中创建的 EventLoop 传递到 HttpServer 中
             auto serverPtr = std::make_shared<HttpServer>(
                 listeningThread_->getLoop(),
                 InetAddress(ip, listener.port_, isIpv6),
                 "drogon");
+            
             if (listener.useSSL_ && utils::supportsTls())
             {
+                // 获取 SSL证书文件和私钥文件的地址
                 auto cert = listener.certFile_;
                 auto key = listener.keyFile_;
                 if (cert.empty())
                     cert = globalCertFile;
                 if (key.empty())
                     key = globalKeyFile;
+                // 这里再进行判断是因为 globalCertFile 和 globalKeyFile 都可能为空
+                // 因为这里的 globalCertFile 和 globalKeyFile 都是 drogon::app() 的数据成员的传过来的形参，他们默认为空
+                // 如果 drogon::app() 不调用 setSslFile 函数，那么就都为空
                 if (cert.empty() || key.empty())
                 {
                     std::cerr
@@ -189,6 +205,8 @@ void ListenerManager::createListeners(
                 policy->setConfCmds(cmds).setUseOldTLS(listener.useOldTLS_);
                 serverPtr->enableSSL(std::move(policy));
             }
+            // 这里传入了全部的 EventLoop 对象
+            // 将IO任务分摊到多个线程上，充分利用多核CPU的资源，避免单个IO线程成为性能瓶颈
             serverPtr->setIoLoops(ioLoops);
             servers_.push_back(serverPtr);
         }

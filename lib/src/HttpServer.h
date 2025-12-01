@@ -21,6 +21,7 @@
 #include <vector>
 #include "impl_forwards.h"
 
+// 回调参数打包
 struct CallbackParamPack;
 
 namespace drogon
@@ -38,6 +39,7 @@ class HttpServer : trantor::NonCopyable
 
     void setIoLoops(const std::vector<trantor::EventLoop *> &ioLoops)
     {
+        // 传递给 TcpServer，drogon
         server_.setIoLoops(ioLoops);
     }
 
@@ -85,6 +87,7 @@ class HttpServer : trantor::NonCopyable
                            const std::vector<HttpRequestImplPtr> &,
                            const std::shared_ptr<HttpRequestParser> &);
 
+    // 参数打包？
     struct HttpRequestParamPack
     {
         std::shared_ptr<ControllerBinderBase> binderPtr;
@@ -148,8 +151,11 @@ class HttpServer : trantor::NonCopyable
 
     trantor::TcpServer server_;
 
+    // 在服务器开始监听之前，对监听套接字设置选项
     std::function<void(int)> beforeListenSetSockOptCallback_;
+    // 接收到新连接之后，对新创建的通信套接字设置选项
     std::function<void(int)> afterAcceptSetSockOptCallback_;
+    // 跟踪管理连接的生命周期
     std::function<void(const trantor::TcpConnectionPtr &)> connectionCallback_;
 };
 

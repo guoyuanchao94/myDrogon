@@ -406,6 +406,8 @@ HttpAppFramework &HttpAppFrameworkImpl::addListener(
     bool useOldTLS,
     const std::vector<std::pair<std::string, std::string>> &sslConfCmds)
 {
+    // running_ 在 run 函数中被置为 true
+    // 限制事件循环启动前添加监听
     assert(!running_);
     listenerManagerPtr_->addListener(
         ip, port, useSSL, certFile, keyFile, useOldTLS, sslConfCmds);
@@ -609,17 +611,25 @@ void HttpAppFrameworkImpl::run()
 #endif
 
     // Create IO threads
+    // threadNum 默认是 1
     ioLoopThreadPool_ =
         std::make_unique<trantor::EventLoopThreadPool>(threadNum_,
                                                        "DrogonIoLoop");
+    // 获取所有的 EventLoop 对象并设置下标
     std::vector<trantor::EventLoop *> ioLoops = ioLoopThreadPool_->getLoops();
     for (size_t i = 0; i < threadNum_; ++i)
     {
         ioLoops[i]->setIndex(i);
     }
+    
+    // getLoop 函数返回的这个 EventLoop 对象不是在这个 EventLoopThreadPool 中创建的
     getLoop()->setIndex(threadNum_);
 
+    // 创建监听套接字的地方
     // Create all listeners.
+
+    // sslCertPath 和 sslKeyPath_ 都是在 setSSLFiles 函数中被初始化、
+    // 当然 setSSLFiles 函数不一定被调用
     listenerManagerPtr_->createListeners(sslCertPath_,
                                          sslKeyPath_,
                                          sslConfCmds_,
@@ -627,9 +637,12 @@ void HttpAppFrameworkImpl::run()
 
     // A fast database client instance should be created in the main event
     // loop, so put the main loop into ioLoops.
+    // 主线程中创建的 EventLoop 对象不处理网络IO事件
     ioLoops.push_back(getLoop());
+    // 不知道创建数据库客户端干嘛
     dbClientManagerPtr_->createDbClients(ioLoops);
     redisClientManagerPtr_->createRedisClients(ioLoops);
+    // enableSession 修改该变量为 true 
     if (useSession_)
     {
         sessionManagerPtr_ =
@@ -642,8 +655,10 @@ void HttpAppFrameworkImpl::run()
     // now start running!!
     running_ = true;
     // Initialize plugins
+    // 使用配置文件配置插件
     auto &pluginConfig = jsonConfig_["plugins"];
     const auto &runtimePluginConfig = jsonRuntimeConfig_["plugins"];
+    
     if (!pluginConfig.isNull())
     {
         if (!runtimePluginConfig.isNull() && runtimePluginConfig.isArray())
@@ -658,6 +673,7 @@ void HttpAppFrameworkImpl::run()
     {
         jsonConfig_["plugins"] = runtimePluginConfig;
     }
+    // 初始化插件
     if (!pluginConfig.isNull())
     {
         pluginsManagerPtr_->initializeAllPlugins(pluginConfig,
@@ -668,16 +684,21 @@ void HttpAppFrameworkImpl::run()
                                                      // TODO: new plugin
                                                  });
     }
+
+    // 初始化路由
     routersInit_ = true;
     HttpControllersRouter::instance().init(ioLoops);
     StaticFileRouter::instance().init(ioLoops);
+    // 事件循环中进行排队
     getLoop()->queueInLoop([this]() {
         for (auto &adv : beginningAdvices_)
         {
             adv();
         }
+        // 调用完给清空掉
         beginningAdvices_.clear();
         // Let listener event loops run when everything is ready.
+        // 启动监听
         listenerManagerPtr_->startListening();
     });
     // start all loops
@@ -685,7 +706,9 @@ void HttpAppFrameworkImpl::run()
     // In before, IOLoops are started in `listenerManagerPtr_->startListening()`
     // It should be fine for them to start anywhere before `startListening()`.
     // However, we should consider other components.
+    // 启动所有的事件循环
     ioLoopThreadPool_->start();
+    // 阻塞当前线程，因为其中有一个 while 循环
     getLoop()->loop();
 }
 
